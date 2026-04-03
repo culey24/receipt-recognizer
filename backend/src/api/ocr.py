@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from src.models.invoice_schema import OCRExtractResponse, OCRInvoiceData
 from src.ocr.ocr_engine import extract_invoice_data
+from src.services.calculation import calculate_see
 
 router = APIRouter(prefix="/api/v1/ocr", tags=["ocr"])
 
@@ -28,4 +29,10 @@ async def extract_invoice(file: UploadFile = File(...)) -> OCRExtractResponse:
     except ValidationError as exc:
         raise HTTPException(status_code=502, detail=f"Model output did not match schema: {exc}") from exc
 
-    return OCRExtractResponse(success=True, model_used=model_used, data=data)
+    calculation = calculate_see(
+        precursors_emissions=data.precursors_emissions,
+        indirect_emissions=data.indirect_emissions,
+        direct_emissions=data.direct_emissions,
+        total_product_output=data.product_output_quantity,
+    )
+    return OCRExtractResponse(success=True, model_used=model_used, data=data, calculation=calculation)

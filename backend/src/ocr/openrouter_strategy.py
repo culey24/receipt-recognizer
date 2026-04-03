@@ -23,6 +23,9 @@ Return exactly this JSON shape (no markdown):
   "fuel_type": string | null,
   "product_name": string | null,
   "product_output_quantity": number | null,
+  "precursors_emissions": number | null,
+  "indirect_emissions": number | null,
+  "direct_emissions": number | null,
   "line_items": [
     {
       "description": string,
