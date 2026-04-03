@@ -5,11 +5,15 @@ description = "Receipt recognizer backend with OpenRouter OCR API"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "arq>=0.26.0",
+    "boto3>=1.35.0",
     "fastapi>=0.115.0",
     "httpx>=0.28.1",
+    "motor>=3.7.1",
     "numpy>=1.26.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
     "python-multipart>=0.0.20",
+    "redis>=5.2.1",
     "uvicorn[standard]>=0.34.0",
 ]
