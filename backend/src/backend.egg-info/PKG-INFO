@@ -4,12 +4,15 @@ Version: 0.1.0
 Summary: Receipt recognizer backend with OpenRouter OCR API
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+Requires-Dist: arq>=0.26.0
+Requires-Dist: boto3>=1.35.0
 Requires-Dist: fastapi>=0.115.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: numpy>=1.26.0
 Requires-Dist: pydantic>=2.10.0
 Requires-Dist: pydantic-settings>=2.6.0
 Requires-Dist: python-multipart>=0.0.20
+Requires-Dist: redis>=5.2.1
 Requires-Dist: uvicorn[standard]>=0.34.0
 
 # Backend
@@ -24,37 +27,82 @@ pip install -e .
 cp .env.example .env
 ```
 
-Fill `OPENROUTER_API_KEY` in `.env`.
+Set `OPENROUTER_API_KEY` in `.env`.
 
-## Run
+## Start Infrastructure (Redis + MinIO)
+
+```bash
+docker compose up -d
+```
+
+Services:
+- Redis: `localhost:6379`
+- MinIO API: `localhost:9000`
+- MinIO Console: `http://localhost:9001`
+
+If these ports are busy, set custom ports in `.env` before running compose:
+
+```env
+REDIS_PORT=6380
+MINIO_API_PORT=9100
+MINIO_CONSOLE_PORT=9101
+MINIO_ENDPOINT_URL=http://localhost:9100
+```
+
+## Run API + Worker
+
+Terminal 1:
 
 ```bash
 uvicorn main:app --reload --port 8000
 ```
 
-## API
+Terminal 2:
+
+```bash
+arq src.worker.WorkerSettings
+```
+
+## Endpoints
 
 - `GET /health`
-- `POST /api/v1/ocr/extract` (multipart form with `file`)
+- `POST /api/v1/ocr/extract` (sync OCR for debugging)
+- `POST /api/v1/jobs` (async job create, returns `job_id`)
+- `GET /api/v1/jobs/{job_id}` (poll status/result)
 
-Supported file types: `image/jpeg`, `image/png`, `image/webp`
+Supported upload file types:
+- `image/jpeg`
+- `image/png`
+- `image/webp`
 
-Response shape:
+## Phase 2: Local Storage + ARQ + Redis
 
-```json
-{
-  "success": true,
-  "model_used": "nvidia/nemotron-nano-12b-v2-vl:free",
-  "data": {
-    "vendor_name": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "currency": null,
-    "total_amount": null,
-    "fuel_type": null,
-    "product_name": null,
-    "product_output_quantity": null,
-    "line_items": []
-  }
-}
+Default `.env`:
+
+```env
+STORAGE_PROVIDER=local
+LOCAL_STORAGE_PATH=./data/uploads
 ```
+
+Workflow:
+1. API receives image upload.
+2. API stores image in local storage.
+3. API writes `queued` job state into Redis.
+4. API enqueues ARQ task `process_ocr_job`.
+5. Worker processes OCR and updates job status to `completed` or `failed`.
+6. Frontend polls `GET /api/v1/jobs/{job_id}`.
+
+## Phase 3: MinIO Storage
+
+Switch `.env`:
+
+```env
+STORAGE_PROVIDER=minio
+MINIO_ENDPOINT_URL=http://localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=receipt-images
+MINIO_REGION=us-east-1
+```
+
+No API change is needed because storage uses a strategy interface.

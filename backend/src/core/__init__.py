@@ -1,3 +1,3 @@
-from src.core.config import Settings, get_model_fallback_chain, get_settings
+from src.core.config import Settings, get_model_fallback_chain, get_redis_settings, get_settings
 
-__all__ = ["Settings", "get_settings", "get_model_fallback_chain"]
+__all__ = ["Settings", "get_settings", "get_model_fallback_chain", "get_redis_settings"]

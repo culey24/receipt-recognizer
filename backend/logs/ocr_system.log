@@ -1,0 +1,4 @@
+2026-04-03 00:56:15 - OpenRouterOCRStrategy - INFO - OCR model attempt: openai/gpt-5-nano
+2026-04-03 00:56:50 - OpenRouterOCRStrategy - INFO - OCR model used successfully: openai/gpt-5-nano
+2026-04-02 18:49:45 - OpenRouterOCRStrategy - INFO - OCR model attempt: openai/gpt-5-nano
+2026-04-02 18:50:15 - OpenRouterOCRStrategy - INFO - OCR model used successfully: openai/gpt-5-nano

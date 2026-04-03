@@ -1,46 +1,74 @@
-# Backend
+# Backend MVP (Phase 2 + Phase 3)
 
-## Setup
+## One-Command Full Stack
 
 ```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
 cp .env.example .env
+# Set OPENROUTER_API_KEY in .env
+docker compose up -d --build
 ```
 
-Fill `OPENROUTER_API_KEY` in `.env`.
+This starts:
+- API (`http://localhost:8000`)
+- Worker (ARQ)
+- Redis
+- MongoDB
+- MinIO
+- Frontend (`http://localhost:5173`)
 
-## Run
+If local ports are occupied, set host ports in `.env`:
 
-```bash
-uvicorn main:app --reload --port 8000
+```env
+REDIS_HOST_PORT=6380
+MONGO_PORT=27018
+MINIO_API_PORT=9100
+MINIO_CONSOLE_PORT=9101
+API_PORT=8001
+FRONTEND_PORT=5174
 ```
 
-## API
+## Core Endpoints
 
 - `GET /health`
-- `POST /api/v1/ocr/extract` (multipart form with `file`)
+- `POST /api/v1/ocr/extract` (sync OCR debug)
+- `POST /api/v1/jobs` (create async job)
+- `GET /api/v1/jobs` (list recent jobs)
+- `GET /api/v1/jobs/{job_id}` (poll one job)
+- `GET /api/v1/jobs/{job_id}/image` (view uploaded image)
 
-Supported file types: `image/jpeg`, `image/png`, `image/webp`
+## Job Status / Error Code
 
-Response shape:
+- `PENDING`
+- `COMPLETED`
+- `FAILED`
 
-```json
-{
-  "success": true,
-  "model_used": "nvidia/nemotron-nano-12b-v2-vl:free",
-  "data": {
-    "vendor_name": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "currency": null,
-    "total_amount": null,
-    "fuel_type": null,
-    "product_name": null,
-    "product_output_quantity": null,
-    "line_items": []
-  }
-}
+## Worker Flow
+
+1. Receive `job_id` from ARQ queue.
+2. Read file from storage strategy.
+3. OCR extraction via OpenRouter strategy.
+4. Validate OCR result with Pydantic schema.
+5. Calculate SEE with:
+   - `SEE = (precursors + indirect + direct) / total_product_output`
+6. Save result to MongoDB.
+
+## Storage Strategy
+
+### Phase 2 default (LocalStorage)
+
+```env
+STORAGE_PROVIDER=local
+LOCAL_STORAGE_PATH=./data/uploads
+```
+
+### Phase 3 (MinIO)
+
+```env
+STORAGE_PROVIDER=minio
+MINIO_ENDPOINT_URL=http://localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=receipt-images
+MINIO_REGION=us-east-1
 ```
