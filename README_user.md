@@ -38,6 +38,10 @@ A **Case** is one calculation workspace.
 7. Click **Save Case Config**.
 8. Check **Case SEE (Aggregated)** and click **Refresh**.
 9. Check **CBAM Tax** in the Case panels (uses realtime EU carbon price).
+10. In **Periodic CBAM Report**:
+   - Select product type and period (year/quarter)
+   - Click **Generate JSON/XML**
+   - Download both report files directly from the UI.
 
 ## 4. Where to View Results
 
@@ -82,6 +86,9 @@ Displayed example:
 - For best result, upload both:
   - fuel receipt + electricity bill
 - If extraction is imperfect, use **Job Overrides** or update **Case Config**.
+- Report generation uses hybrid logic:
+  - LLM draft for narrative mapping
+  - deterministic backend rules for CBAM structure and final schema output.
 
 ## 7. Quick Troubleshooting
 
