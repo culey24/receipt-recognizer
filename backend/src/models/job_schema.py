@@ -12,10 +12,17 @@ class JobStatus(str, Enum):
     failed = "FAILED"
 
 
+class DocumentType(str, Enum):
+    fuel_invoice = "fuel_invoice"
+    electricity_bill = "electricity_bill"
+
+
 class OCRJob(BaseModel):
     job_id: str
     status: JobStatus
     error_code: JobStatus = JobStatus.pending
+    document_type: DocumentType = DocumentType.fuel_invoice
+    case_id: str | None = None
     file_key: str
     file_name: str
     content_type: str
@@ -30,6 +37,8 @@ class OCRJobResponse(BaseModel):
     job_id: str
     status: JobStatus
     error_code: JobStatus
+    document_type: DocumentType
+    case_id: str | None = None
     file_name: str
     content_type: str
     created_at: datetime
