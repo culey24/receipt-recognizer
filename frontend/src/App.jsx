@@ -93,6 +93,26 @@ const MESSAGES = {
     failedSaveCase: "Failed to save case settings",
     failedRefreshCase: "Failed to refresh case SEE",
     failedRefreshJobs: "Failed to refresh jobs",
+    reportGenerator: "Periodic CBAM Report",
+    reportProductType: "Product type",
+    reportYear: "Year",
+    reportQuarter: "Quarter",
+    reportLanguage: "Report language",
+    generateReport: "Generate JSON/XML",
+    generatingReport: "Generating report...",
+    reportStatus: "Report status",
+    llmStatus: "LLM draft",
+    reportId: "Report ID",
+    downloadJson: "Download JSON",
+    downloadXml: "Download XML",
+    reportReason: "Report reason",
+    productTypeCement: "Cement",
+    productTypeFertilizer: "Fertilizer",
+    productTypeIronSteel: "Iron/Steel",
+    productTypeAluminum: "Aluminum",
+    productTypeHydrogen: "Hydrogen",
+    productTypeElectricity: "Electricity",
+    failedGenerateReport: "Failed to generate report",
   },
   vi: {
     workspaceLabel: "Không gian CBAM",
@@ -179,6 +199,26 @@ const MESSAGES = {
     failedSaveCase: "Không lưu được cấu hình case",
     failedRefreshCase: "Không làm mới được SEE theo case",
     failedRefreshJobs: "Không làm mới được danh sách job",
+    reportGenerator: "Báo cáo CBAM định kỳ",
+    reportProductType: "Nhóm sản phẩm",
+    reportYear: "Năm",
+    reportQuarter: "Quý",
+    reportLanguage: "Ngôn ngữ báo cáo",
+    generateReport: "Tạo JSON/XML",
+    generatingReport: "Đang tạo báo cáo...",
+    reportStatus: "Trạng thái báo cáo",
+    llmStatus: "Bản nháp LLM",
+    reportId: "Mã báo cáo",
+    downloadJson: "Tải JSON",
+    downloadXml: "Tải XML",
+    reportReason: "Lý do báo cáo",
+    productTypeCement: "Xi măng",
+    productTypeFertilizer: "Phân bón",
+    productTypeIronSteel: "Sắt/Thép",
+    productTypeAluminum: "Nhôm",
+    productTypeHydrogen: "Hydro",
+    productTypeElectricity: "Điện",
+    failedGenerateReport: "Không tạo được báo cáo",
   },
 };
 
@@ -234,6 +274,9 @@ function cardClassName(extra = "") {
 }
 
 export default function App() {
+  const now = new Date();
+  const defaultQuarter = Math.floor(now.getMonth() / 3) + 1;
+
   const [lang, setLang] = useState(() => {
     const saved = localStorage.getItem(LANG_STORAGE_KEY);
     return saved === "vi" ? "vi" : "en";
@@ -260,6 +303,14 @@ export default function App() {
     indirect_emissions: "",
     total_product_output: "",
   });
+  const [reportConfig, setReportConfig] = useState({
+    product_type: "iron_steel",
+    period_year: now.getFullYear(),
+    period_quarter: defaultQuarter,
+    language: "en",
+  });
+  const [reportResult, setReportResult] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   const t = (key) => MESSAGES[lang][key] || MESSAGES.en[key] || key;
   const locale = lang === "vi" ? "vi-VN" : "en-US";
@@ -286,6 +337,16 @@ export default function App() {
     return value || "-";
   };
 
+  const productTypeLabel = (value) => {
+    if (value === "cement") return t("productTypeCement");
+    if (value === "fertilizer") return t("productTypeFertilizer");
+    if (value === "iron_steel") return t("productTypeIronSteel");
+    if (value === "aluminum") return t("productTypeAluminum");
+    if (value === "hydrogen") return t("productTypeHydrogen");
+    if (value === "electricity") return t("productTypeElectricity");
+    return value || "-";
+  };
+
   const formatMissingFields = (fields) => {
     if (!Array.isArray(fields) || fields.length === 0) return "-";
     if (lang !== "vi") return fields.join(", ");
@@ -301,6 +362,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(LANG_STORAGE_KEY, lang);
   }, [lang]);
+
+  useEffect(() => {
+    setReportConfig((prev) => ({ ...prev, language: lang }));
+  }, [lang]);
+
+  useEffect(() => {
+    setReportResult(null);
+  }, [activeCaseId]);
 
   const selectedRows = useMemo(() => {
     if (!selectedJob?.result?.data) return [];
@@ -585,6 +654,36 @@ export default function App() {
       setError(e.message || t("failedSaveCase"));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generatePeriodicReport = async () => {
+    if (!activeCaseId) return;
+    setReportLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/reports/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          case_id: activeCaseId,
+          product_type: reportConfig.product_type,
+          language: reportConfig.language,
+          period_year: Number(reportConfig.period_year),
+          period_quarter: Number(reportConfig.period_quarter),
+          export_quantity: parseNullableNumber(caseConfig.export_quantity),
+          include_llm_draft: true,
+        }),
+      });
+      const payload = await response.json();
+      if (response.ok === false) {
+        throw new Error(payload?.detail || t("failedGenerateReport"));
+      }
+      setReportResult(payload);
+    } catch (e) {
+      setError(e.message || t("failedGenerateReport"));
+    } finally {
+      setReportLoading(false);
     }
   };
 
@@ -1137,6 +1236,115 @@ export default function App() {
                       {t("saveCaseConfig")}
                     </button>
                   </div>
+                </div>
+
+                <div className={cardClassName()}>
+                  <p className="mb-2 text-lg font-semibold text-slate-900">{t("reportGenerator")}</p>
+                  <div className="grid gap-2">
+                    <label className="text-xs font-medium text-slate-600">{t("reportProductType")}</label>
+                    <select
+                      value={reportConfig.product_type}
+                      onChange={(event) => setReportConfig((prev) => ({ ...prev, product_type: event.target.value }))}
+                      className="w-full rounded-lg border border-[#E6EFEA] bg-white px-3 py-2 text-sm outline-none focus:border-emerald-300"
+                    >
+                      <option value="cement">{t("productTypeCement")}</option>
+                      <option value="fertilizer">{t("productTypeFertilizer")}</option>
+                      <option value="iron_steel">{t("productTypeIronSteel")}</option>
+                      <option value="aluminum">{t("productTypeAluminum")}</option>
+                      <option value="hydrogen">{t("productTypeHydrogen")}</option>
+                      <option value="electricity">{t("productTypeElectricity")}</option>
+                    </select>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t("reportYear")}</label>
+                        <input
+                          type="number"
+                          min="2023"
+                          max="2100"
+                          value={reportConfig.period_year}
+                          onChange={(event) =>
+                            setReportConfig((prev) => ({ ...prev, period_year: Number(event.target.value) }))
+                          }
+                          className="w-full rounded-lg border border-[#E6EFEA] bg-white px-3 py-2 text-sm outline-none focus:border-emerald-300"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t("reportQuarter")}</label>
+                        <select
+                          value={reportConfig.period_quarter}
+                          onChange={(event) =>
+                            setReportConfig((prev) => ({ ...prev, period_quarter: Number(event.target.value) }))
+                          }
+                          className="w-full rounded-lg border border-[#E6EFEA] bg-white px-3 py-2 text-sm outline-none focus:border-emerald-300"
+                        >
+                          <option value={1}>Q1</option>
+                          <option value={2}>Q2</option>
+                          <option value={3}>Q3</option>
+                          <option value={4}>Q4</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <label className="text-xs font-medium text-slate-600">{t("reportLanguage")}</label>
+                    <select
+                      value={reportConfig.language}
+                      onChange={(event) => setReportConfig((prev) => ({ ...prev, language: event.target.value }))}
+                      className="w-full rounded-lg border border-[#E6EFEA] bg-white px-3 py-2 text-sm outline-none focus:border-emerald-300"
+                    >
+                      <option value="en">English</option>
+                      <option value="vi">Tiếng Việt</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={!activeCaseId || reportLoading}
+                      onClick={generatePeriodicReport}
+                      className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      {reportLoading ? t("generatingReport") : t("generateReport")}
+                    </button>
+                  </div>
+
+                  {reportResult ? (
+                    <div className="mt-3 rounded-xl bg-[#F8FBF9] p-3 text-sm text-slate-700 ring-1 ring-[#EAF2EE]">
+                      <p>
+                        {t("reportStatus")}: <span className="font-semibold">{reportResult.status}</span>
+                      </p>
+                      <p>
+                        {t("llmStatus")}: {reportResult.report?.llm_status || "-"}
+                      </p>
+                      <p>
+                        {t("reportId")}: <span className="font-mono text-xs">{reportResult.report?.report_id || "-"}</span>
+                      </p>
+                      <p>
+                        {t("reportProductType")}: {productTypeLabel(reportResult.report?.product_type)}
+                      </p>
+                      {reportResult.reason ? (
+                        <p className="text-amber-700">
+                          {t("reportReason")}: {formatReason(reportResult.reason)}
+                        </p>
+                      ) : null}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <a
+                          href={`${API_BASE_URL}${reportResult.files?.json_download_url || ""}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                        >
+                          {t("downloadJson")}
+                        </a>
+                        <a
+                          href={`${API_BASE_URL}${reportResult.files?.xml_download_url || ""}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                        >
+                          {t("downloadXml")}
+                        </a>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className={cardClassName()}>
