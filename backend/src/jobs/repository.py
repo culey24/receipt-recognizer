@@ -29,6 +29,14 @@ class JobRepository:
             jobs.append(OCRJob.model_validate(raw))
         return jobs
 
+    async def list_by_case(self, case_id: str, limit: int = 200) -> list[OCRJob]:
+        cursor = self.collection.find({"case_id": case_id}).sort("updated_at", -1).limit(limit)
+        jobs: list[OCRJob] = []
+        async for raw in cursor:
+            raw.pop("_id", None)
+            jobs.append(OCRJob.model_validate(raw))
+        return jobs
+
     async def update(
         self,
         job_id: str,
