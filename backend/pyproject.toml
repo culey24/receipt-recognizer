@@ -16,4 +16,5 @@ dependencies = [
     "python-multipart>=0.0.20",
     "redis>=5.2.1",
     "uvicorn[standard]>=0.34.0",
+    "yfinance>=0.2.66",
 ]

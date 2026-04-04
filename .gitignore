@@ -1,16 +1,15 @@
-# Python
+# Environment Variables
+.env
+/backend/.env
+/frontend/.env
+
+# Python cache
 __pycache__/
 *.py[cod]
-.venv/
-venv/
 
-# Node
-node_modules/
-
-# Env
-.env
-backend/.env
-frontend/.env
-
-# Build artifacts
-dist/
+# Local runtime artifacts
+/backend/.venv
+/backend/data
+/backend/logs
+/frontend/node_modules
+/frontend/dist

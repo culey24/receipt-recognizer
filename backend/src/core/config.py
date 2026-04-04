@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db_name: str = "receipt_recognizer"
     mongo_jobs_collection: str = "ocr_jobs"
+    mongo_cases_collection: str = "ocr_cases"
+    mongo_fuel_mapping_collection: str = "fuel_mappings"
+    mongo_emission_factor_collection: str = "emission_factors"
 
     # Storage strategy configuration
     storage_provider: str = "local"
@@ -39,6 +42,11 @@ class Settings(BaseSettings):
     minio_secret_key: str = "minioadmin"
     minio_bucket: str = "receipt-images"
     minio_region: str = "us-east-1"
+    grid_emission_factor_vn: float = 0.6592
+    carbon_price_tickers: str = "CO2.L,^ICEEUA"
+    carbon_price_fallback_eur: float | None = None
+    fx_rate_ticker: str = "EURVND=X"
+    fx_rate_fallback_eur_vnd: float | None = None
 
     model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 

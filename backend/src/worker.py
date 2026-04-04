@@ -1,12 +1,15 @@
 from arq.connections import RedisSettings
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from src.cases.repository import CaseRepository
 from src.core.config import get_redis_settings, get_settings
 from src.jobs.repository import JobRepository
-from src.models.invoice_schema import OCRExtractResponse, OCRInvoiceData
+from src.models.invoice_schema import CalculationStatus, OCRExtractResponse, OCRInvoiceData
 from src.models.job_schema import JobStatus
 from src.ocr.ocr_engine import extract_invoice_data
 from src.services.calculation import calculate_see
+from src.services.document_enrichment import enrich_for_document_type
+from src.services.emission_lookup import EmissionFactorLookupService
 from src.storage.factory import get_storage
 from src.utils.logger import setup_logger
 
@@ -19,6 +22,14 @@ async def on_startup(ctx: dict) -> None:
     mongo_db = mongo_client[settings.mongo_db_name]
     ctx["mongo_client"] = mongo_client
     ctx["jobs_collection"] = mongo_db[settings.mongo_jobs_collection]
+    ctx["cases_collection"] = mongo_db[settings.mongo_cases_collection]
+    fuel_mapping_collection = mongo_db[settings.mongo_fuel_mapping_collection]
+    emission_factor_collection = mongo_db[settings.mongo_emission_factor_collection]
+    ctx["emission_lookup"] = EmissionFactorLookupService(
+        fuel_mapping_collection=fuel_mapping_collection,
+        emission_factor_collection=emission_factor_collection,
+    )
+    await ctx["emission_lookup"].ensure_seed_data()
 
 
 async def on_shutdown(ctx: dict) -> None:
@@ -29,7 +40,10 @@ async def on_shutdown(ctx: dict) -> None:
 
 async def process_ocr_job(ctx: dict, job_id: str) -> None:
     collection = ctx["jobs_collection"]
+    cases_collection = ctx["cases_collection"]
+    emission_lookup = ctx["emission_lookup"]
     repo = JobRepository(collection=collection)
+    case_repo = CaseRepository(collection=cases_collection)
 
     job = await repo.get(job_id)
     if job is None:
@@ -42,28 +56,42 @@ async def process_ocr_job(ctx: dict, job_id: str) -> None:
         storage = get_storage()
         image_bytes = await storage.read_bytes(job.file_key)
 
-        raw_data, model_used = await extract_invoice_data(image_bytes=image_bytes, mime_type=job.content_type)
+        raw_data, model_used = await extract_invoice_data(
+            image_bytes=image_bytes,
+            mime_type=job.content_type,
+            document_type=job.document_type,
+        )
         data = OCRInvoiceData.model_validate(raw_data)
-
-        calculation = calculate_see(
-            precursors_emissions=data.precursors_emissions,
-            indirect_emissions=data.indirect_emissions,
-            direct_emissions=data.direct_emissions,
-            total_product_output=data.product_output_quantity,
+        settings = get_settings()
+        enrichment = await enrich_for_document_type(
+            data=data,
+            document_type=job.document_type,
+            emission_lookup=emission_lookup,
+            grid_emission_factor=settings.grid_emission_factor_vn,
+        )
+        enriched_data, calculation = calculate_see(
+            data=enrichment.data,
+            override=None,
+            source=enrichment.source,
+            fuel_type_mapped=enrichment.fuel_type_mapped,
+            direct_emission_factor=enrichment.direct_emission_factor,
         )
         result = OCRExtractResponse(
             success=True,
             model_used=model_used,
-            data=data,
+            data=enriched_data,
             calculation=calculation,
         )
+        job_status = JobStatus.failed if calculation.status == CalculationStatus.failed else JobStatus.completed
         await repo.update(
             job_id,
-            status=JobStatus.completed,
+            status=job_status,
             result=result,
-            error_message=None,
+            error_message=calculation.reason if job_status == JobStatus.failed else None,
             model_used=model_used,
         )
+        if job.case_id is not None:
+            await case_repo.touch(job.case_id)
     except Exception as exc:  # noqa: BLE001
         LOGGER.exception("Job %s failed", job_id)
         await repo.update(
@@ -73,6 +101,8 @@ async def process_ocr_job(ctx: dict, job_id: str) -> None:
             error_message=str(exc),
             model_used=None,
         )
+        if job.case_id is not None:
+            await case_repo.touch(job.case_id)
 
 
 class WorkerSettings:

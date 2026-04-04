@@ -6,9 +6,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from src.api.cases import router as cases_router
+from src.api.emission import router as emission_router
 from src.api.jobs import router as jobs_router
 from src.api.ocr import router as ocr_router
 from src.core.config import get_redis_settings, get_settings
+from src.services.emission_lookup import EmissionFactorLookupService
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,8 +26,19 @@ async def lifespan(app: FastAPI):
     app.state.mongo_db = app.state.mongo_client[settings.mongo_db_name]
     await app.state.mongo_db.command("ping")
     app.state.jobs_collection = app.state.mongo_db[settings.mongo_jobs_collection]
+    app.state.cases_collection = app.state.mongo_db[settings.mongo_cases_collection]
+    app.state.fuel_mapping_collection = app.state.mongo_db[settings.mongo_fuel_mapping_collection]
+    app.state.emission_factor_collection = app.state.mongo_db[settings.mongo_emission_factor_collection]
     await app.state.jobs_collection.create_index("job_id", unique=True)
     await app.state.jobs_collection.create_index("updated_at")
+    await app.state.jobs_collection.create_index("case_id")
+    await app.state.cases_collection.create_index("case_id", unique=True)
+    await app.state.cases_collection.create_index("updated_at")
+    app.state.emission_lookup = EmissionFactorLookupService(
+        fuel_mapping_collection=app.state.fuel_mapping_collection,
+        emission_factor_collection=app.state.emission_factor_collection,
+    )
+    await app.state.emission_lookup.ensure_seed_data()
     LOGGER.info("Connected to MongoDB: %s", settings.mongo_uri)
 
     try:
@@ -57,3 +71,5 @@ async def health() -> dict[str, str]:
 
 app.include_router(ocr_router)
 app.include_router(jobs_router)
+app.include_router(emission_router)
+app.include_router(cases_router)
