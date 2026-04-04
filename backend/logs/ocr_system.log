@@ -20,3 +20,8 @@
 2026-04-04 12:22:55 - OpenRouterOCRStrategy - INFO - OCR model used successfully: openai/gpt-5-nano
 2026-04-04 12:48:36 - OpenRouterOCRStrategy - INFO - OCR model attempt: openai/gpt-5-nano
 2026-04-04 12:49:17 - OpenRouterOCRStrategy - INFO - OCR model used successfully: openai/gpt-5-nano
+2026-04-04 15:55:02 - OpenRouterOCRStrategy - INFO - OCR model attempt: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-04 15:56:33 - OpenRouterOCRStrategy - INFO - OCR model used successfully: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-04 16:53:38 - ElectricityBillStrategy - INFO - OCR model attempt: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-04 16:54:30 - ElectricityBillStrategy - INFO - OCR model attempt: google/gemini-2.5-flash
+2026-04-04 16:54:32 - ElectricityBillStrategy - INFO - OCR model used successfully: google/gemini-2.5-flash
