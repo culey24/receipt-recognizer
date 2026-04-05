@@ -44,8 +44,8 @@ FRONTEND_PORT=5174
 - `GET /api/v1/cases/{case_id}/see` (aggregate SEE across all jobs in case)
 - `GET /api/v1/cases/{case_id}/cbam-tax` (CBAM tax from SEE + export quantity + carbon price)
 - `POST /api/v1/reports/preview` (build periodic CBAM report payload without writing files)
-- `POST /api/v1/reports/generate` (generate periodic CBAM report files in JSON/XML)
-- `GET /api/v1/reports/{report_id}/download?format=json|xml` (download generated report file)
+- `POST /api/v1/reports/generate` (generate periodic CBAM report files in JSON/XML/TXT/PDF)
+- `GET /api/v1/reports/{report_id}/download?format=json|xml|txt|pdf` (download generated report file)
 - `GET /api/v1/emission/fuel-mappings` (list product -> fuel mappings)
 - `PUT /api/v1/emission/fuel-mappings` (upsert mapping)
 - `GET /api/v1/emission/factors` (list fuel emission factors)
@@ -145,7 +145,7 @@ If mapping/factor is missing, SEE returns `MANUAL_REQUIRED` with missing fields 
 - Part 2 (code-enforced):
   - Backend applies deterministic CBAM rule mapping by `product_type`
   - Validates output with Pydantic schema
-  - Exports JSON/XML files in `REPORT_STORAGE_PATH`
+  - Exports JSON/XML/TXT/PDF files in `REPORT_STORAGE_PATH`
 
 Supported `product_type`:
 - `cement`

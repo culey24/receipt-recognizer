@@ -41,7 +41,7 @@ A **Case** is one calculation workspace.
 10. In **Periodic CBAM Report**:
    - Select product type and period (year/quarter)
    - Click **Generate JSON/XML**
-   - Download both report files directly from the UI.
+   - Download report files directly from the UI (`JSON`, `XML`, `TXT`, `PDF`).
 
 ## 4. Where to View Results
 

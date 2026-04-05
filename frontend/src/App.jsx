@@ -98,13 +98,15 @@ const MESSAGES = {
     reportYear: "Year",
     reportQuarter: "Quarter",
     reportLanguage: "Report language",
-    generateReport: "Generate JSON/XML",
+    generateReport: "Generate Report Files",
     generatingReport: "Generating report...",
     reportStatus: "Report status",
     llmStatus: "LLM draft",
     reportId: "Report ID",
     downloadJson: "Download JSON",
     downloadXml: "Download XML",
+    downloadTxt: "Download TXT",
+    downloadPdf: "Download PDF",
     reportReason: "Report reason",
     productTypeCement: "Cement",
     productTypeFertilizer: "Fertilizer",
@@ -204,13 +206,15 @@ const MESSAGES = {
     reportYear: "Năm",
     reportQuarter: "Quý",
     reportLanguage: "Ngôn ngữ báo cáo",
-    generateReport: "Tạo JSON/XML",
+    generateReport: "Tạo tệp báo cáo",
     generatingReport: "Đang tạo báo cáo...",
     reportStatus: "Trạng thái báo cáo",
     llmStatus: "Bản nháp LLM",
     reportId: "Mã báo cáo",
     downloadJson: "Tải JSON",
     downloadXml: "Tải XML",
+    downloadTxt: "Tải TXT",
+    downloadPdf: "Tải PDF",
     reportReason: "Lý do báo cáo",
     productTypeCement: "Xi măng",
     productTypeFertilizer: "Phân bón",
@@ -1341,6 +1345,22 @@ export default function App() {
                           className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
                         >
                           {t("downloadXml")}
+                        </a>
+                        <a
+                          href={`${API_BASE_URL}${reportResult.files?.txt_download_url || ""}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                        >
+                          {t("downloadTxt")}
+                        </a>
+                        <a
+                          href={`${API_BASE_URL}${reportResult.files?.pdf_download_url || ""}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                        >
+                          {t("downloadPdf")}
                         </a>
                       </div>
                     </div>
