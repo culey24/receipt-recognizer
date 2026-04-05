@@ -10,6 +10,8 @@ from src.services.reporting import (
     get_cbam_rules,
     save_report_files,
     serialize_report_json,
+    serialize_report_pdf,
+    serialize_report_txt,
     serialize_report_xml,
 )
 
@@ -24,6 +26,8 @@ __all__ = [
     "generate_llm_report_draft",
     "choose_reporting_note",
     "serialize_report_json",
+    "serialize_report_txt",
+    "serialize_report_pdf",
     "serialize_report_xml",
     "save_report_files",
 ]

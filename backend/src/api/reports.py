@@ -27,6 +27,8 @@ from src.services.reporting import (
     get_cbam_rules,
     save_report_files,
     serialize_report_json,
+    serialize_report_pdf,
+    serialize_report_txt,
     serialize_report_xml,
 )
 
@@ -207,17 +209,25 @@ async def generate_report(request: Request, payload: ReportPreviewRequest) -> Re
     settings = get_settings()
     json_content = serialize_report_json(report)
     xml_content = serialize_report_xml(report)
-    json_path, xml_path = save_report_files(
+    txt_content = serialize_report_txt(report)
+    pdf_content = serialize_report_pdf(report)
+    json_path, xml_path, txt_path, pdf_path = save_report_files(
         report_id=report.report_id,
         report_storage_path=settings.report_storage_path,
         json_content=json_content,
         xml_content=xml_content,
+        txt_content=txt_content,
+        pdf_content=pdf_content,
     )
     files = ReportFileLinks(
         json_path=str(json_path),
         xml_path=str(xml_path),
+        txt_path=str(txt_path),
+        pdf_path=str(pdf_path),
         json_download_url=f"/api/v1/reports/{report.report_id}/download?format=json",
         xml_download_url=f"/api/v1/reports/{report.report_id}/download?format=xml",
+        txt_download_url=f"/api/v1/reports/{report.report_id}/download?format=txt",
+        pdf_download_url=f"/api/v1/reports/{report.report_id}/download?format=pdf",
     )
     return ReportGenerateResponse(status=status, reason=report.reason, report=report, files=files)
 
@@ -236,6 +246,13 @@ async def download_report(
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Report file not found")
 
-    media_type = "application/json" if format == ReportFileFormat.json else "application/xml"
+    if format == ReportFileFormat.json:
+        media_type = "application/json"
+    elif format == ReportFileFormat.xml:
+        media_type = "application/xml"
+    elif format == ReportFileFormat.txt:
+        media_type = "text/plain"
+    else:
+        media_type = "application/pdf"
     filename = file_path.name
     return FileResponse(file_path, media_type=media_type, filename=filename)

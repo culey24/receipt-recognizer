@@ -21,6 +21,8 @@ class CBAMProductType(str, Enum):
 class ReportFileFormat(str, Enum):
     json = "json"
     xml = "xml"
+    txt = "txt"
+    pdf = "pdf"
 
 
 class ReportingPeriod(BaseModel):
@@ -101,8 +103,12 @@ class ReportPreviewResponse(BaseModel):
 class ReportFileLinks(BaseModel):
     json_path: str
     xml_path: str
+    txt_path: str
+    pdf_path: str
     json_download_url: str
     xml_download_url: str
+    txt_download_url: str
+    pdf_download_url: str
 
 
 class ReportGenerateResponse(BaseModel):

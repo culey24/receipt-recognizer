@@ -1,5 +1,6 @@
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
@@ -314,21 +315,37 @@ def serialize_report_xml(report: CBAMPeriodicReport) -> str:
     return xml_bytes.decode("utf-8")
 
 
+def serialize_report_txt(report: CBAMPeriodicReport) -> str:
+    lines = _build_report_lines(report)
+    return "\n".join(lines) + "\n"
+
+
+def serialize_report_pdf(report: CBAMPeriodicReport) -> bytes:
+    lines = _build_report_lines(report)
+    return _render_simple_pdf(lines)
+
+
 def save_report_files(
     *,
     report_id: str,
     report_storage_path: str,
     json_content: str,
     xml_content: str,
-) -> tuple[Path, Path]:
+    txt_content: str,
+    pdf_content: bytes,
+) -> tuple[Path, Path, Path, Path]:
     base_path = Path(report_storage_path).expanduser().resolve()
     base_path.mkdir(parents=True, exist_ok=True)
 
     json_path = base_path / f"{report_id}.json"
     xml_path = base_path / f"{report_id}.xml"
+    txt_path = base_path / f"{report_id}.txt"
+    pdf_path = base_path / f"{report_id}.pdf"
     json_path.write_text(json_content, encoding="utf-8")
     xml_path.write_text(xml_content, encoding="utf-8")
-    return json_path, xml_path
+    txt_path.write_text(txt_content, encoding="utf-8")
+    pdf_path.write_bytes(pdf_content)
+    return json_path, xml_path, txt_path, pdf_path
 
 
 def _extract_text_content(content: Any) -> str:
@@ -359,3 +376,120 @@ def _to_xml_number(value: float | None) -> str:
     if value is None:
         return ""
     return str(value)
+
+
+def _build_report_lines(report: CBAMPeriodicReport) -> list[str]:
+    def fmt_num(value: float | None) -> str:
+        if value is None:
+            return "-"
+        return f"{value:.2f}"
+
+    lines = [
+        "CBAM PERIODIC REPORT",
+        "====================",
+        "",
+        "[GENERAL]",
+        f"Report ID               : {report.report_id}",
+        f"Case ID                 : {report.case_id}",
+        f"Generated At            : {report.generated_at.isoformat()}",
+        f"Reporting Period        : {report.period.year}-Q{report.period.quarter}",
+        f"Language                : {report.language.value}",
+        f"Product Type            : {report.product_type.value}",
+        f"Invoice Count           : {report.invoice_count}",
+        f"Vendors                 : {', '.join(report.vendor_names) if report.vendor_names else '-'}",
+        "",
+        "[CBAM RULES]",
+        f"Gases Reported          : {', '.join(report.gases_reported) if report.gases_reported else '-'}",
+        f"Transition Scope        : {report.transition_period_scope}",
+        f"Specified Scope         : {report.specified_period_scope}",
+        f"Direct Method           : {report.direct_emissions_method}",
+        f"Indirect Method         : {report.indirect_emissions_method}",
+        f"Identification Method   : {report.identification_method}",
+        "",
+        "[EMISSIONS + SEE]",
+        f"Direct Emissions        : {fmt_num(report.direct_emissions)}",
+        f"Indirect Emissions      : {fmt_num(report.indirect_emissions)}",
+        f"Precursors Emissions    : {fmt_num(report.precursors_emissions)}",
+        f"Total Emissions         : {fmt_num(report.total_emissions)}",
+        f"Total Product Output    : {fmt_num(report.total_product_output)}",
+        f"Specific Embedded Emis. : {fmt_num(report.specific_embedded_emissions)}",
+        "",
+        "[CBAM TAX]",
+        f"Export Quantity         : {fmt_num(report.export_quantity)}",
+        f"EU Carbon Price (EUR)   : {fmt_num(report.eu_carbon_price_eur_per_tco2)} / tCO2",
+        f"EUR -> VND Rate         : {fmt_num(report.eur_vnd_rate)}",
+        f"CBAM Tax (EUR)          : {fmt_num(report.cbam_tax_eur)}",
+        f"CBAM Tax (VND)          : {fmt_num(report.cbam_tax_vnd)}",
+        "",
+        "[LLM DRAFT]",
+        f"LLM Status              : {report.llm_status}",
+        f"LLM Model               : {report.llm_model_used or '-'}",
+        f"Reporting Note          : {report.reporting_note or '-'}",
+        "",
+        "[QUALITY]",
+        f"Missing Fields          : {', '.join(report.missing_fields) if report.missing_fields else '-'}",
+        f"Reason                  : {report.reason or '-'}",
+    ]
+    return lines
+
+
+def _render_simple_pdf(lines: list[str]) -> bytes:
+    content_lines = ["BT", "/F1 10 Tf", "50 800 Td", "14 TL"]
+    for line in lines:
+        safe_line = _pdf_escape(_ascii_safe(line))
+        content_lines.append(f"({safe_line}) Tj")
+        content_lines.append("T*")
+    content_lines.append("ET")
+    content_stream = "\n".join(content_lines).encode("latin-1", errors="replace")
+
+    objects: list[bytes] = []
+    objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
+    objects.append(b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
+    objects.append(
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"
+    )
+    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    objects.append(
+        b"<< /Length "
+        + str(len(content_stream)).encode("ascii")
+        + b" >>\nstream\n"
+        + content_stream
+        + b"\nendstream"
+    )
+
+    pdf = bytearray()
+    pdf.extend(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+
+    offsets = [0]
+    for idx, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{idx} 0 obj\n".encode("ascii"))
+        pdf.extend(obj)
+        pdf.extend(b"\nendobj\n")
+
+    xref_start = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    pdf.extend(b"0000000000 65535 f \n")
+    for off in offsets[1:]:
+        pdf.extend(f"{off:010d} 00000 n \n".encode("ascii"))
+    pdf.extend(
+        (
+            "trailer\n"
+            f"<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+            "startxref\n"
+            f"{xref_start}\n"
+            "%%EOF\n"
+        ).encode("ascii")
+    )
+    return bytes(pdf)
+
+
+def _ascii_safe(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text)
+    ascii_bytes = normalized.encode("ascii", errors="ignore")
+    return ascii_bytes.decode("ascii")
+
+
+def _pdf_escape(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
