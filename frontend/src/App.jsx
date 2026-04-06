@@ -1960,6 +1960,65 @@ export default function App() {
     }, 30000);
     return () => clearInterval(timer);
   }, [activeCaseId]);
+
+  // ── Periodic CBAM report ─────────────────────────────────────────────────────
+  const generatePeriodicReport = async () => {
+    if (!activeCaseId) return;
+    setReportLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/reports/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          case_id: activeCaseId,
+          product_type: reportConfig.product_type,
+          language: reportConfig.language,
+          period_year: Number(reportConfig.period_year),
+          period_quarter: Number(reportConfig.period_quarter),
+          export_quantity: parseNullableNumber(caseConfig.export_quantity),
+          include_llm_draft: true,
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.detail || t("failedGenerateReport"));
+      setReportResult(payload);
+    } catch (e) {
+      setError(e.message || t("failedGenerateReport"));
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  // ── Nav items ────────────────────────────────────────────────────────────────
+  const navItems = useMemo(
+    () => [
+      { key: "upload", label: t("navUpload"), Icon: Upload },
+      { key: "cases", label: t("navCases"), Icon: Database },
+      { key: "jobs", label: t("navJobs"), Icon: List },
+      { key: "result", label: t("navResult"), Icon: FileText, disabled: !selectedJob },
+      { key: "emission-admin", label: t("navEmission"), Icon: Settings },
+    ],
+    [lang, selectedJob],
+  );
+
+  const handleNavClick = async (key) => {
+    setError("");
+    if (key === "cases") {
+      setScreen("cases");
+      try { await fetchCases(); } catch (e) { setError(e.message || t("failedFetchCases")); }
+    } else if (key === "jobs") {
+      setScreen("jobs");
+      try { await fetchJobs(); } catch (e) { setError(e.message || t("failedRefreshJobs")); }
+    } else if (key === "emission-admin") {
+      setScreen("emission-admin");
+      try { await fetchEmissionData(); } catch (e) { setError(e.message || t("failedFetchEmission")); }
+    } else {
+      setScreen(key);
+    }
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F3FAF6] text-slate-800">
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 lg:flex-row lg:px-8">
