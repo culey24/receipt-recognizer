@@ -10,6 +10,7 @@ from src.api.cases import router as cases_router
 from src.api.emission import router as emission_router
 from src.api.jobs import router as jobs_router
 from src.api.ocr import router as ocr_router
+from src.api.reports import router as reports_router
 from src.core.config import get_redis_settings, get_settings
 from src.services.emission_lookup import EmissionFactorLookupService
 
@@ -73,3 +74,4 @@ app.include_router(ocr_router)
 app.include_router(jobs_router)
 app.include_router(emission_router)
 app.include_router(cases_router)
+app.include_router(reports_router)

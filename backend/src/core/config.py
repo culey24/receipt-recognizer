@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     carbon_price_fallback_eur: float | None = None
     fx_rate_ticker: str = "EURVND=X"
     fx_rate_fallback_eur_vnd: float | None = None
+    report_storage_path: str = str(BASE_DIR / "data" / "reports")
 
     model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 

@@ -18,6 +18,18 @@ from src.models.invoice_schema import (
     OCRLineItem,
 )
 from src.models.job_schema import DocumentType, OCRJob, OCRJobResponse, JobStatus
+from src.models.report_schema import (
+    CBAMPeriodicReport,
+    CBAMProductType,
+    CBAMRuleSet,
+    LLMReportDraft,
+    ReportFileFormat,
+    ReportGenerateResponse,
+    ReportLanguage,
+    ReportPreviewRequest,
+    ReportPreviewResponse,
+    ReportingPeriod,
+)
 
 __all__ = [
     "OCRExtractResponse",
@@ -39,4 +51,14 @@ __all__ = [
     "CarbonPriceQuote",
     "FXRateQuote",
     "CaseCBAMTaxResponse",
+    "ReportLanguage",
+    "CBAMProductType",
+    "ReportFileFormat",
+    "ReportingPeriod",
+    "CBAMRuleSet",
+    "LLMReportDraft",
+    "CBAMPeriodicReport",
+    "ReportPreviewRequest",
+    "ReportPreviewResponse",
+    "ReportGenerateResponse",
 ]

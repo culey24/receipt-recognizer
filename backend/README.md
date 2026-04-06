@@ -43,6 +43,9 @@ FRONTEND_PORT=5174
 - `PATCH /api/v1/cases/{case_id}` (update case config)
 - `GET /api/v1/cases/{case_id}/see` (aggregate SEE across all jobs in case)
 - `GET /api/v1/cases/{case_id}/cbam-tax` (CBAM tax from SEE + export quantity + carbon price)
+- `POST /api/v1/reports/preview` (build periodic CBAM report payload without writing files)
+- `POST /api/v1/reports/generate` (generate periodic CBAM report files in JSON/XML/TXT/PDF)
+- `GET /api/v1/reports/{report_id}/download?format=json|xml|txt|pdf` (download generated report file)
 - `GET /api/v1/emission/fuel-mappings` (list product -> fuel mappings)
 - `PUT /api/v1/emission/fuel-mappings` (upsert mapping)
 - `GET /api/v1/emission/factors` (list fuel emission factors)
@@ -133,3 +136,21 @@ If mapping/factor is missing, SEE returns `MANUAL_REQUIRED` with missing fields 
 - FX rate source (EUR -> VND):
   - `yfinance` with ticker `FX_RATE_TICKER` (default `EURVND=X`)
   - optional fallback (`FX_RATE_FALLBACK_EUR_VND`) if FX quote fails
+
+## Periodic CBAM Report (Hybrid LLM + Deterministic Rules)
+
+- Part 1 (LLM draft):
+  - OpenRouter receives case summary + selected `product_type`
+  - Returns strict JSON draft (notes/labels)
+- Part 2 (code-enforced):
+  - Backend applies deterministic CBAM rule mapping by `product_type`
+  - Validates output with Pydantic schema
+  - Exports JSON/XML/TXT/PDF files in `REPORT_STORAGE_PATH`
+
+Supported `product_type`:
+- `cement`
+- `fertilizer`
+- `iron_steel`
+- `aluminum`
+- `hydrogen`
+- `electricity`
