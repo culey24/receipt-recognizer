@@ -30,3 +30,4 @@
 2026-04-04 16:54:30 - ElectricityBillStrategy - INFO - OCR model attempt: google/gemini-2.5-flash
 2026-04-04 16:54:32 - ElectricityBillStrategy - INFO - OCR model used successfully: google/gemini-2.5-flash
 2026-04-06 14:54:43 - ElectricityBillStrategy - INFO - OCR model attempt: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-06 14:55:26 - ElectricityBillStrategy - INFO - OCR model used successfully: nvidia/nemotron-nano-12b-v2-vl:free
