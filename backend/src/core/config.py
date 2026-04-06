@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     fx_rate_fallback_eur_vnd: float | None = None
     report_storage_path: str = str(BASE_DIR / "data" / "reports")
 
+    # CORS — comma-separated list of allowed origins (added for production deployments)
+    # Example: https://my-app.vercel.app,https://my-custom-domain.com
+    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
     model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
 
