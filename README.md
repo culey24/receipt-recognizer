@@ -1,14 +1,22 @@
 # Backend
-cd /Users/hieu/Desktop/CBAM/receipt-recognizer-main/backend
+```sh
+cd backend
 source .venv/bin/activate
 uvicorn main:app --reload --port 8000
-
+```
+or run with DOCKER:
+```sh
+cd backend
+docker compose up -d --build
+```
 
 # Frontend
-cd /Users/hieu/Desktop/CBAM/receipt-recognizer-main/frontend
+```sh
+cd frontend
 npm install
 cp .env.example .env
-# make sure .env contains:
-# VITE_API_BASE_URL=http://localhost:8000
 npm run dev
+```
 
+# Deployment
+- Frontend: Deploy with VERCEL

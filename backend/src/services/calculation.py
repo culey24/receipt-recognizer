@@ -42,8 +42,12 @@ def calculate_see(
         ):
             hydrated.total_product_output = override.total_product_output
             used_manual = True
+        if override.direct_emissions is not None:
+            hydrated.direct_emissions = override.direct_emissions
+            used_manual = True
 
-    if direct_emission_factor is not None and hydrated.quantity_used is not None:
+    applied_direct_override = override is not None and override.direct_emissions is not None
+    if not applied_direct_override and direct_emission_factor is not None and hydrated.quantity_used is not None:
         hydrated.direct_emissions = hydrated.quantity_used * direct_emission_factor
 
     quantity_used = hydrated.quantity_used

@@ -15,8 +15,12 @@ import {
   Upload,
   X,
   Zap,
+  ClipboardList,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { AuditingScreen } from "./AuditingScreen.jsx";
+import { DocumentImagePreview } from "./DocumentImagePreview.jsx";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const POLL_INTERVAL_MS = 1500;
@@ -24,6 +28,7 @@ const POLL_MAX_ATTEMPTS = 120;
 const DECIMALS = 2;
 const LANG_STORAGE_KEY = "cbam_lang";
 const AUDIT_LOG_STORAGE_KEY = "cbam_audit_log";
+const MAX_AUDIT_EVENTS = 800;
 
 // ─── i18n ─────────────────────────────────────────────────────────────────────
 const MESSAGES = {
@@ -96,8 +101,10 @@ const MESSAGES = {
     priceTicker: "Price ticker",
     tax: "Tax",
     jobOverrides: "Manual Overrides",
-    jobOverridesHint: "Enter or adjust values that could not be extracted from the document.",
+    jobOverridesHint:
+      "Enter or adjust values that could not be extracted from the document. Direct emissions normally equal quantity × emission factor (see Emission Admin); leave the direct field empty to keep that auto value, or type a number to override.",
     quantityUsed: "Quantity used",
+    directEmissionsManual: "Direct emissions (optional override)",
     indirectEmissionsInput: "Indirect emissions",
     recalculateJob: "Save & Recalculate",
     recalculating: "Recalculating...",
@@ -133,6 +140,30 @@ const MESSAGES = {
     directEFUnit: "EF (tCO2/unit)",
     exportCSV: "Export CSV",
     auditLog: "Edit History",
+    navAuditing: "Auditing",
+    auditTrailTitle: "Activity & audit trail",
+    auditTrailSubtitle: "User actions and parameter changes stored in this browser (local only).",
+    auditTrailEmpty: "No activity recorded yet.",
+    auditClearAll: "Clear log",
+    auditExportJson: "Export JSON",
+    auditColTime: "Time",
+    auditColAction: "Action",
+    auditColDetail: "Detail",
+    auditStorageHint: "Log is capped and saved in localStorage for this browser. Clear cookies/storage to reset.",
+    auditClearConfirm: "Clear the entire activity log? This cannot be undone.",
+    auditAction_parameter_edit: "Parameter edit",
+    auditAction_case_created: "Case created",
+    auditAction_case_loaded: "Case loaded",
+    auditAction_case_opened: "Case opened from list",
+    auditAction_case_cleared: "Case cleared",
+    auditAction_job_opened: "Job opened",
+    auditAction_document_uploaded: "Document uploaded",
+    auditAction_job_recalculate: "Job recalculated",
+    auditAction_case_config_saved: "Case config saved",
+    auditAction_csv_exported: "CSV exported",
+    auditAction_report_generated: "Periodic report generated",
+    auditAction_emission_mapping_saved: "Fuel mapping saved",
+    auditAction_emission_factor_saved: "Emission factor saved",
     auditField: "Field",
     auditOldValue: "Old value",
     auditNewValue: "New value",
@@ -163,6 +194,15 @@ const MESSAGES = {
     productTypeHydrogen: "Hydrogen",
     productTypeElectricity: "Electricity",
     failedGenerateReport: "Failed to generate report",
+    previewZoom: "Zoom",
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
+    zoomReset: "Reset zoom",
+    layoutAnalyzing: "Scanning text regions (low confidence)…",
+    layoutFetchFailed: "Could not download the image for layout scan",
+    layoutFailed: "Could not run layout scan for highlights.",
+    lowConfidenceLegend:
+      "Light red: engine confidence is low (often blurry or faint). Highlights use Tesseract; CBAM fields still come from the LLM.",
   },
   vi: {
     workspaceLabel: "Không gian CBAM",
@@ -233,8 +273,10 @@ const MESSAGES = {
     priceTicker: "Mã giá",
     tax: "Thuế",
     jobOverrides: "Nhập tay / Điều chỉnh",
-    jobOverridesHint: "Nhập hoặc điều chỉnh các giá trị không trích xuất được từ tài liệu.",
+    jobOverridesHint:
+      "Nhập hoặc điều chỉnh các giá trị không trích xuất được từ tài liệu. Phát thải trực tiếp thường = lượng tiêu thụ × hệ số EF (Quản trị phát thải); để trống ô phát thải trực tiếp để giữ công thức tự động, hoặc nhập số nếu cần ghi đè.",
     quantityUsed: "Lượng nhiên liệu tiêu thụ",
+    directEmissionsManual: "Phát thải trực tiếp (ghi đè tùy chọn)",
     indirectEmissionsInput: "Phát thải gián tiếp",
     recalculateJob: "Lưu & Tính lại",
     recalculating: "Đang tính lại...",
@@ -270,6 +312,30 @@ const MESSAGES = {
     directEFUnit: "Hệ số (tCO2/đơn vị)",
     exportCSV: "Xuất CSV",
     auditLog: "Lịch sử chỉnh sửa",
+    navAuditing: "Kiểm toán / Audit",
+    auditTrailTitle: "Hoạt động & nhật ký kiểm toán",
+    auditTrailSubtitle: "Hành động và thay đổi tham số (lưu cục bộ trên trình duyệt này).",
+    auditTrailEmpty: "Chưa có hoạt động nào được ghi.",
+    auditClearAll: "Xóa nhật ký",
+    auditExportJson: "Xuất JSON",
+    auditColTime: "Thời gian",
+    auditColAction: "Hành động",
+    auditColDetail: "Chi tiết",
+    auditStorageHint: "Nhật ký giới hạn số dòng và lưu trong localStorage. Xóa dữ liệu trình duyệt sẽ mất log.",
+    auditClearConfirm: "Xóa toàn bộ nhật ký hoạt động? Không thể hoàn tác.",
+    auditAction_parameter_edit: "Chỉnh tham số",
+    auditAction_case_created: "Tạo case",
+    auditAction_case_loaded: "Tải case",
+    auditAction_case_opened: "Mở case từ danh sách",
+    auditAction_case_cleared: "Đóng / xóa case đang chọn",
+    auditAction_job_opened: "Mở chi tiết job",
+    auditAction_document_uploaded: "Tải lên chứng từ",
+    auditAction_job_recalculate: "Tính lại job",
+    auditAction_case_config_saved: "Lưu cấu hình case",
+    auditAction_csv_exported: "Xuất CSV",
+    auditAction_report_generated: "Tạo báo cáo định kỳ",
+    auditAction_emission_mapping_saved: "Lưu ánh xạ nhiên liệu",
+    auditAction_emission_factor_saved: "Lưu hệ số phát thải",
     auditField: "Trường",
     auditOldValue: "Giá trị cũ",
     auditNewValue: "Giá trị mới",
@@ -300,6 +366,15 @@ const MESSAGES = {
     productTypeHydrogen: "Hydro",
     productTypeElectricity: "Điện",
     failedGenerateReport: "Không tạo được báo cáo",
+    previewZoom: "Phóng to",
+    zoomIn: "Phóng to",
+    zoomOut: "Thu nhỏ",
+    zoomReset: "Đặt lại",
+    layoutAnalyzing: "Đang quét vùng chữ (độ tin cậy thấp)…",
+    layoutFetchFailed: "Không tải được ảnh để quét layout",
+    layoutFailed: "Không quét được layout để tô màu.",
+    lowConfidenceLegend:
+      "Đỏ nhạt: độ tin cậy OCR thấp (thường do mờ/nhạt). Lớp tô màu dùng Tesseract; trường CBAM vẫn do LLM trích xuất.",
   },
 };
 
@@ -713,12 +788,12 @@ function ResultScreen({
 
   const handleSave = async () => {
     const d = selectedJob?.result?.data;
-    ["quantity_used", "precursors_emissions", "indirect_emissions", "total_product_output"].forEach((field) => {
+    ["quantity_used", "direct_emissions", "precursors_emissions", "indirect_emissions", "total_product_output"].forEach((field) => {
       if (overrides[field] === "") return;
       const newVal = Number(overrides[field]);
       const oldVal = d?.[field];
       if (!Number.isNaN(newVal) && oldVal !== newVal) {
-        addAuditEntry(selectedJob.job_id, field, oldVal, newVal);
+        addAuditEntry(selectedJob.job_id, field, oldVal, newVal, activeCaseId);
       }
     });
     setManualValues(overrides);
@@ -737,11 +812,16 @@ function ResultScreen({
     ["fuel_type", data?.fuel_type],
     ["product_name", data?.product_name],
     ["electricity_consumption_kwh", data?.electricity_consumption_kwh],
-    ["direct_emissions", data?.direct_emissions],
   ];
 
   const overridableFields = [
     { key: "quantity_used", label: t("quantityUsed"), ocrValue: data?.quantity_used },
+    {
+      key: "direct_emissions",
+      label: t("directEmissionsManual"),
+      ocrValue: data?.direct_emissions,
+      optionalComputed: true,
+    },
     { key: "precursors_emissions", label: t("precursorsEmissions"), ocrValue: data?.precursors_emissions },
     { key: "indirect_emissions", label: t("indirectEmissionsInput"), ocrValue: data?.indirect_emissions },
     { key: "total_product_output", label: t("totalProductOutput"), ocrValue: data?.total_product_output },
@@ -759,10 +839,10 @@ function ResultScreen({
       <div className="space-y-4">
         <div className={cardClassName("xl:sticky xl:top-6")}>
           <p className="mb-3 text-lg font-semibold text-slate-900">{t("documentPreview")}</p>
-          <img
-            src={`${API_BASE_URL}/api/v1/jobs/${selectedJob?.job_id}/image`}
-            alt="Document"
-            className="max-h-[680px] w-full rounded-xl border border-[#EAF2EE] object-contain"
+          <DocumentImagePreview
+            imageUrl={`${API_BASE_URL}/api/v1/jobs/${selectedJob?.job_id}/image`}
+            jobStatus={selectedJob?.status}
+            t={t}
           />
           {hasMissingOverrides && (
             <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-700 ring-1 ring-amber-200">
@@ -837,15 +917,29 @@ function ResultScreen({
           <p className="mb-1 text-lg font-semibold text-slate-900">{t("jobOverrides")}</p>
           <p className="mb-4 text-sm text-slate-400">{t("jobOverridesHint")}</p>
           <div className="space-y-3">
-            {overridableFields.map(({ key, label, ocrValue }) => {
+            {overridableFields.map(({ key, label, ocrValue, optionalComputed }) => {
               const isMissing = ocrValue === null || ocrValue === undefined;
+              const showWarning = isMissing && !optionalComputed;
+              const placeholder =
+                optionalComputed && !isMissing
+                  ? lang === "vi"
+                    ? "Để trống = dùng lượng × EF"
+                    : "Leave blank to use quantity × EF"
+                  : isMissing
+                    ? t("missingValueHint")
+                    : "";
               return (
                 <div key={key}>
                   <label className="mb-1.5 flex items-center gap-2 text-xs font-medium text-slate-600">
-                    {isMissing && <AlertTriangle size={12} className="text-amber-500" />}
+                    {showWarning && <AlertTriangle size={12} className="text-amber-500" />}
                     <span>{label}</span>
-                    <span className={`ml-auto text-xs ${isMissing ? "text-amber-500" : "text-slate-400"}`}>
-                      {t("ocrValue")}: {isMissing ? "—" : formatCellValue(ocrValue, locale)}
+                    <span
+                      className={`ml-auto text-xs ${
+                        isMissing && !optionalComputed ? "text-amber-500" : "text-slate-400"
+                      }`}
+                    >
+                      {optionalComputed ? (lang === "vi" ? "Hiện tại" : "Current") : t("ocrValue")}:{" "}
+                      {isMissing ? "—" : formatCellValue(ocrValue, locale)}
                     </span>
                   </label>
                   <input
@@ -853,9 +947,9 @@ function ResultScreen({
                     step="any"
                     value={overrides[key]}
                     onChange={(e) => setOverrides((p) => ({ ...p, [key]: e.target.value }))}
-                    placeholder={isMissing ? t("missingValueHint") : ""}
+                    placeholder={placeholder}
                     className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition-colors ${
-                      isMissing
+                      showWarning
                         ? "border-amber-300 bg-amber-50 placeholder:text-amber-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-200"
                         : "border-[#E6EFEA] bg-white focus:border-emerald-300 focus:ring-1 focus:ring-emerald-100"
                     }`}
@@ -1249,6 +1343,7 @@ function EmissionAdminScreen({
   upsertFuelMapping,
   upsertEmissionFactor,
   setError,
+  logActivity,
 }) {
   const [newMapping, setNewMapping] = useState({ product_key: "", fuel_type: "" });
   const [newFactor, setNewFactor] = useState({ fuel_type: "", direct_ef: "" });
@@ -1260,6 +1355,11 @@ function EmissionAdminScreen({
     if (!newMapping.product_key.trim() || !newMapping.fuel_type.trim()) return;
     const ok = await upsertFuelMapping(newMapping);
     if (ok) {
+      logActivity?.({
+        type: "emission_mapping_saved",
+        product_key: newMapping.product_key,
+        fuel_type: newMapping.fuel_type,
+      });
       setNewMapping({ product_key: "", fuel_type: "" });
     } else {
       setError(t("failedUpsertMapping"));
@@ -1268,8 +1368,14 @@ function EmissionAdminScreen({
 
   const handleAddFactor = async () => {
     if (!newFactor.fuel_type.trim() || !newFactor.direct_ef) return;
-    const ok = await upsertEmissionFactor({ fuel_type: newFactor.fuel_type, direct_ef: Number(newFactor.direct_ef) });
+    const directEf = Number(newFactor.direct_ef);
+    const ok = await upsertEmissionFactor({ fuel_type: newFactor.fuel_type, direct_ef: directEf });
     if (ok) {
+      logActivity?.({
+        type: "emission_factor_saved",
+        fuel_type: newFactor.fuel_type,
+        direct_ef: directEf,
+      });
       setNewFactor({ fuel_type: "", direct_ef: "" });
     } else {
       setError(t("failedUpsertFactor"));
@@ -1526,6 +1632,7 @@ export default function App() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [manualValues, setManualValues] = useState({
     quantity_used: "",
+    direct_emissions: "",
     precursors_emissions: "",
     indirect_emissions: "",
     total_product_output: "",
@@ -1605,14 +1712,56 @@ export default function App() {
   };
 
   // ── Audit log ───────────────────────────────────────────────────────────────
-  const addAuditEntry = (jobId, field, oldValue, newValue) => {
-    const entry = { jobId, field, oldValue, newValue, timestamp: new Date().toISOString() };
+  const appendAuditEvent = useCallback((entry) => {
+    const row = {
+      id:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      timestamp: new Date().toISOString(),
+      ...entry,
+    };
     setAuditLog((prev) => {
-      const next = [entry, ...prev].slice(0, 300);
-      localStorage.setItem(AUDIT_LOG_STORAGE_KEY, JSON.stringify(next));
+      const next = [row, ...prev].slice(0, MAX_AUDIT_EVENTS);
+      try {
+        localStorage.setItem(AUDIT_LOG_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore quota */
+      }
       return next;
     });
-  };
+  }, []);
+
+  const addAuditEntry = useCallback((jobId, field, oldValue, newValue, caseId = null) => {
+    appendAuditEvent({
+      type: "parameter_edit",
+      jobId,
+      field,
+      oldValue,
+      newValue,
+      caseId: caseId || undefined,
+    });
+  }, [appendAuditEvent]);
+
+  const clearAuditLog = useCallback(() => {
+    setAuditLog([]);
+    try {
+      localStorage.removeItem(AUDIT_LOG_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const prevCaseIdRef = useRef(null);
+  useEffect(() => {
+    if (prevCaseIdRef.current !== null) {
+      const prev = prevCaseIdRef.current;
+      if (prev && !String(activeCaseId).trim()) {
+        appendAuditEvent({ type: "case_cleared", caseId: prev });
+      }
+    }
+    prevCaseIdRef.current = activeCaseId;
+  }, [activeCaseId, appendAuditEvent]);
 
   useEffect(() => {
     setReportConfig((prev) => ({ ...prev, language: lang }));
@@ -1716,6 +1865,7 @@ export default function App() {
     const d = job?.result?.data;
     setManualValues({
       quantity_used: "",
+      direct_emissions: "",
       precursors_emissions: d?.precursors_emissions ?? "",
       indirect_emissions: d?.indirect_emissions ?? "",
       total_product_output: d?.total_product_output ?? "",
@@ -1775,6 +1925,12 @@ export default function App() {
         await fetchCaseConfig(finalJob.case_id);
       }
       fillManualFromJob(finalJob);
+      appendAuditEvent({
+        type: "document_uploaded",
+        jobId: finalJob.job_id,
+        caseId: finalJob.case_id || undefined,
+        documentType,
+      });
       setScreen("result");
     } catch (err) {
       setError(err.message || t("unexpectedError"));
@@ -1800,6 +1956,7 @@ export default function App() {
       setCaseSummary(null);
       setCbamTax(null);
     }
+    appendAuditEvent({ type: "job_opened", jobId: payload.job_id, caseId: payload.case_id || undefined });
     setScreen("result");
   };
 
@@ -1809,6 +1966,7 @@ export default function App() {
       await fetchCaseConfig(caseId);
       await fetchCaseSummary(caseId);
       await fetchCaseCbamTax(caseId);
+      appendAuditEvent({ type: "case_opened", caseId });
     } catch (e) {
       setError(e.message || t("failedLoadCase"));
     }
@@ -1826,6 +1984,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           quantity_used: parseNullableNumber(values.quantity_used),
+          direct_emissions: parseNullableNumber(values.direct_emissions),
           precursors_emissions: parseNullableNumber(values.precursors_emissions),
           indirect_emissions: parseNullableNumber(values.indirect_emissions),
           total_product_output: parseNullableNumber(values.total_product_output),
@@ -1834,6 +1993,11 @@ export default function App() {
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.detail || t("failedRecalculate"));
       setSelectedJob(payload);
+      appendAuditEvent({
+        type: "job_recalculate",
+        jobId: selectedJob.job_id,
+        caseId: payload.case_id || selectedJob.case_id || undefined,
+      });
       if (payload.case_id) {
         await fetchCaseSummary(payload.case_id);
         await fetchCaseCbamTax(payload.case_id);
@@ -1859,6 +2023,7 @@ export default function App() {
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.detail || t("failedCreateCase"));
       setActiveCaseId(payload.case_id);
+      appendAuditEvent({ type: "case_created", caseId: payload.case_id });
       await fetchCaseSummary(payload.case_id);
       await fetchCaseConfig(payload.case_id);
       await fetchCaseCbamTax(payload.case_id);
@@ -1877,6 +2042,7 @@ export default function App() {
       await fetchCaseConfig(activeCaseId);
       await fetchCaseSummary(activeCaseId);
       await fetchCaseCbamTax(activeCaseId);
+      appendAuditEvent({ type: "case_loaded", caseId: activeCaseId });
     } catch (e) {
       setError(e.message || t("failedLoadCase"));
     } finally {
@@ -1907,6 +2073,7 @@ export default function App() {
       });
       await fetchCaseSummary(activeCaseId);
       await fetchCaseCbamTax(activeCaseId);
+      appendAuditEvent({ type: "case_config_saved", caseId: activeCaseId });
     } catch (e) {
       setError(e.message || t("failedSaveCase"));
     } finally {
@@ -1917,6 +2084,8 @@ export default function App() {
   // ── Phase 5: CSV export ─────────────────────────────────────────────────────
   const exportCaseCSV = () => {
     if (!caseSummary) return;
+    const downloadName = `cbam_case_${activeCaseId}_${new Date().toISOString().slice(0, 10)}.csv`;
+    appendAuditEvent({ type: "csv_exported", caseId: activeCaseId, fileName: downloadName });
     const rows = [
       ["case_id", activeCaseId],
       ["status", caseSummary.status],
@@ -1940,7 +2109,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `cbam_case_${activeCaseId}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = downloadName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1983,6 +2152,12 @@ export default function App() {
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.detail || t("failedGenerateReport"));
       setReportResult(payload);
+      appendAuditEvent({
+        type: "report_generated",
+        caseId: activeCaseId,
+        reportId: payload?.report_id,
+        productType: reportConfig.product_type,
+      });
     } catch (e) {
       setError(e.message || t("failedGenerateReport"));
     } finally {
@@ -1997,6 +2172,7 @@ export default function App() {
       { key: "cases", label: t("navCases"), Icon: Database },
       { key: "jobs", label: t("navJobs"), Icon: List },
       { key: "result", label: t("navResult"), Icon: FileText, disabled: !selectedJob },
+      { key: "auditing", label: t("navAuditing"), Icon: ClipboardList },
       { key: "emission-admin", label: t("navEmission"), Icon: Settings },
     ],
     [lang, selectedJob],
@@ -2232,6 +2408,31 @@ export default function App() {
             />
           )}
 
+          {screen === "auditing" && (
+            <AuditingScreen
+              t={t}
+              locale={locale}
+              auditLog={auditLog}
+              onClearAll={() => {
+                if (!window.confirm(t("auditClearConfirm"))) return;
+                clearAuditLog();
+              }}
+              onExportJson={() => {
+                const blob = new Blob([JSON.stringify(auditLog, null, 2)], {
+                  type: "application/json;charset=utf-8",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `cbam_audit_${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+            />
+          )}
+
           {screen === "emission-admin" && (
             <EmissionAdminScreen
               t={t}
@@ -2242,6 +2443,7 @@ export default function App() {
               upsertFuelMapping={upsertFuelMapping}
               upsertEmissionFactor={upsertEmissionFactor}
               setError={setError}
+              logActivity={appendAuditEvent}
             />
           )}
         </main>

@@ -37,3 +37,13 @@
 2026-04-07 13:35:04 - ElectricityBillStrategy - INFO - OCR model used successfully: nvidia/nemotron-nano-12b-v2-vl:free
 2026-04-07 13:36:29 - ElectricityBillStrategy - INFO - OCR model attempt: nvidia/nemotron-nano-12b-v2-vl:free
 2026-04-07 13:37:16 - ElectricityBillStrategy - INFO - OCR model used successfully: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 16:32:47 - OpenRouterOCRStrategy - INFO - OCR model attempt: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 16:33:18 - OpenRouterOCRStrategy - INFO - OCR model used successfully: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 16:52:55 - OpenRouterOCRStrategy - INFO - OCR model attempt: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 16:53:25 - OpenRouterOCRStrategy - INFO - OCR model used successfully: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 17:04:43 - OpenRouterOCRStrategy - INFO - OCR model attempt: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 17:05:40 - OpenRouterOCRStrategy - INFO - OCR model used successfully: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 17:16:33 - OpenRouterOCRStrategy - INFO - OCR model attempt: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 17:16:49 - OpenRouterOCRStrategy - INFO - OCR model used successfully: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 17:20:04 - OpenRouterOCRStrategy - INFO - OCR model attempt: nvidia/nemotron-nano-12b-v2-vl:free
+2026-04-08 17:20:29 - OpenRouterOCRStrategy - INFO - OCR model used successfully: nvidia/nemotron-nano-12b-v2-vl:free

@@ -68,6 +68,7 @@ class OCRExtractResponse(BaseModel):
 
 class EmissionOverrideRequest(BaseModel):
     quantity_used: float | None = None
+    direct_emissions: float | None = None
     precursors_emissions: float | None = None
     indirect_emissions: float | None = None
     total_product_output: float | None = None
