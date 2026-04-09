@@ -12,6 +12,9 @@ from src.models.report_schema import CBAMPeriodicReport, CBAMProductType, CBAMRu
 
 _RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
 
+# Brand watermark on generated PDF reports (diagonal, light gray).
+REPORT_BRAND_WATERMARK = "AI-Green Auditor"
+
 _CBAM_RULES: dict[CBAMProductType, dict[str, Any]] = {
     CBAMProductType.cement: {
         "gases_reported": ["CO2"],
@@ -434,7 +437,21 @@ def _build_report_lines(report: CBAMPeriodicReport) -> list[str]:
 
 
 def _render_simple_pdf(lines: list[str]) -> bytes:
-    content_lines = ["BT", "/F1 10 Tf", "50 800 Td", "14 TL"]
+    wm = _pdf_escape(_ascii_safe(REPORT_BRAND_WATERMARK))
+    # Draw behind body text: light gray, ~45°, Helvetica (same /F1 as body).
+    watermark_block = "\n".join(
+        [
+            "q",
+            "0.88 g",
+            "BT",
+            "/F1 36 Tf",
+            "0.707 0.707 -0.707 0.707 130 400 Tm",
+            f"({wm}) Tj",
+            "ET",
+            "Q",
+        ]
+    )
+    content_lines = [watermark_block, "BT", "/F1 10 Tf", "50 800 Td", "14 TL"]
     for line in lines:
         safe_line = _pdf_escape(_ascii_safe(line))
         content_lines.append(f"({safe_line}) Tj")
