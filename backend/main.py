@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -16,17 +17,66 @@ from src.services.emission_lookup import EmissionFactorLookupService
 
 LOGGER = logging.getLogger(__name__)
 
+_MONGO_TIMEOUT_MS = 10_000
+_STARTUP_RETRIES = 12
+_STARTUP_RETRY_DELAY_S = 2.5
+
+
+async def _connect_redis_with_retry(settings):
+    redis_settings = get_redis_settings(settings)
+    last_exc: Exception | None = None
+    for attempt in range(1, _STARTUP_RETRIES + 1):
+        try:
+            pool = await create_pool(redis_settings)
+            LOGGER.info("Connected to Redis at %s:%s", redis_settings.host, redis_settings.port)
+            return pool
+        except Exception as exc:
+            last_exc = exc
+            LOGGER.warning(
+                "Redis connect attempt %s/%s failed: %s",
+                attempt,
+                _STARTUP_RETRIES,
+                exc,
+            )
+            if attempt < _STARTUP_RETRIES:
+                await asyncio.sleep(_STARTUP_RETRY_DELAY_S)
+    assert last_exc is not None
+    raise last_exc
+
+
+async def _mongo_ping_with_retry(mongo_db):
+    last_exc: Exception | None = None
+    for attempt in range(1, _STARTUP_RETRIES + 1):
+        try:
+            await mongo_db.command("ping")
+            return
+        except Exception as exc:
+            last_exc = exc
+            LOGGER.warning(
+                "MongoDB ping attempt %s/%s failed: %s",
+                attempt,
+                _STARTUP_RETRIES,
+                exc,
+            )
+            if attempt < _STARTUP_RETRIES:
+                await asyncio.sleep(_STARTUP_RETRY_DELAY_S)
+    assert last_exc is not None
+    raise last_exc
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    redis_settings = get_redis_settings(settings)
-    app.state.redis = await create_pool(redis_settings)
-    LOGGER.info("Connected to Redis at %s:%s", redis_settings.host, redis_settings.port)
+    app.state.redis = await _connect_redis_with_retry(settings)
 
-    app.state.mongo_client = AsyncIOMotorClient(settings.mongo_uri)
+    # Fail fast instead of hanging when Atlas/network blocks the host (common on Railway).
+    app.state.mongo_client = AsyncIOMotorClient(
+        settings.mongo_uri,
+        serverSelectionTimeoutMS=_MONGO_TIMEOUT_MS,
+        connectTimeoutMS=_MONGO_TIMEOUT_MS,
+    )
     app.state.mongo_db = app.state.mongo_client[settings.mongo_db_name]
-    await app.state.mongo_db.command("ping")
+    await _mongo_ping_with_retry(app.state.mongo_db)
     app.state.jobs_collection = app.state.mongo_db[settings.mongo_jobs_collection]
     app.state.cases_collection = app.state.mongo_db[settings.mongo_cases_collection]
     app.state.fuel_mapping_collection = app.state.mongo_db[settings.mongo_fuel_mapping_collection]
