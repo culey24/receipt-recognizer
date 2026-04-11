@@ -58,10 +58,16 @@ app = FastAPI(title="Receipt Recognizer OCR API", version="0.2.0", lifespan=life
 
 _settings = get_settings()
 _allowed_origins = [o.strip() for o in _settings.allowed_origins.split(",") if o.strip()]
+# Regex is OR'd with allow_origins: localhost dev + typical Vercel hostnames. Custom domains
+# must still be listed in ALLOWED_ORIGINS (e.g. https://app.example.com).
+_allow_origin_regex = (
+    r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+    r"|^https://[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.vercel\.app$"
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=_allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
