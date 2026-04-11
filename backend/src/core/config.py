@@ -109,15 +109,13 @@ class Settings(BaseSettings):
             )
         except ValueError:
             return self
-        return self.model_copy(
-            update={
-                "redis_host": host,
-                "redis_port": port,
-                "redis_password": password,
-                "redis_db": db,
-                "redis_ssl": ssl,
-            }
-        )
+        # Mutate in place; returning model_copy() from mode="after" triggers a Pydantic warning.
+        object.__setattr__(self, "redis_host", host)
+        object.__setattr__(self, "redis_port", port)
+        object.__setattr__(self, "redis_password", password)
+        object.__setattr__(self, "redis_db", db)
+        object.__setattr__(self, "redis_ssl", ssl)
+        return self
 
 
 @lru_cache
