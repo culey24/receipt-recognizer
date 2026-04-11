@@ -20,8 +20,9 @@ LOGGER = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    app.state.redis = await create_pool(get_redis_settings(settings))
-    LOGGER.info("Connected to Redis at %s:%s", settings.redis_host, settings.redis_port)
+    redis_settings = get_redis_settings(settings)
+    app.state.redis = await create_pool(redis_settings)
+    LOGGER.info("Connected to Redis at %s:%s", redis_settings.host, redis_settings.port)
 
     app.state.mongo_client = AsyncIOMotorClient(settings.mongo_uri)
     app.state.mongo_db = app.state.mongo_client[settings.mongo_db_name]
