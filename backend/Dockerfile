@@ -11,4 +11,7 @@ COPY main.py ./
 
 RUN pip install --no-cache-dir -e .
 
+# Railway sets PORT; run via shell so $PORT expands (raw ${PORT} in dashboard does not).
+CMD ["sh", "-c", "exec python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+
 EXPOSE 8000
